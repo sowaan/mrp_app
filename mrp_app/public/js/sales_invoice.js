@@ -14,52 +14,74 @@ frappe.ui.form.on('Sales Invoice Item', {
     async price_list_rate(frm, cdt, cdn) {
         await update_custom_pricing(frm, cdt, cdn);
     },
-    async custom_unit_price(frm, cdt, cdn) {
+    async item_tax_template(frm, cdt, cdn) {
         await update_custom_pricing(frm, cdt, cdn);
     },
 });
 
 async function update_custom_pricing(frm, cdt, cdn) {
     const row = locals[cdt][cdn];
-    const taxRate = frm.doc.taxes.length > 0 ? frm.doc.taxes[0].rate : 0;
+
+    // Step 1: Fetch item tax rate from Item Tax Template (if any)
+    let taxRate = 0;
+    if (row.item_tax_template) {
+        try {
+            const { message } = await frappe.call({
+                method: 'frappe.client.get',
+                args: {
+                    doctype: 'Item Tax Template',
+                    name: row.item_tax_template,
+                }
+            });
+            if (message && message.taxes?.length) {
+                taxRate = message.taxes[0].tax_rate || 0;
+            }
+        } catch (error) {
+            console.error("Error fetching Item Tax Template:", error);
+        }
+    }
+
     const taxRatePer = taxRate / 100;
 
-    // Calculate base unit price excluding tax
-    row.custom_unit_price = row.price_list_rate / (1 + taxRatePer);
+    // Step 2: Compute unit price and tax
+    const price_list_rate = row.price_list_rate || 0;
+    const qty = row.qty || 0;
 
-    // Calculate tax per item
+    row.custom_unit_price = price_list_rate / (1 + taxRatePer);
     const item_tax_amount = row.custom_unit_price * taxRatePer;
-    row.custom_sales_tax_amount = row.qty * item_tax_amount;
+    row.custom_sales_tax_amount = qty * item_tax_amount;
 
-    // Get trade price and discount from customer
+    // Step 3: Fetch trade pricing from customer
     let trade_price = 0;
     let discount_on_tp = 0;
 
-    const response = await frappe.call({
-        method: 'frappe.client.get_value',
-        args: {
-            doctype: 'Customer',
-            filters: { name: frm.doc.customer },
-            fieldname: ['custom_trade_price', 'custom_discount_on_tp']
+    try {
+        const { message } = await frappe.call({
+            method: 'frappe.client.get_value',
+            args: {
+                doctype: 'Customer',
+                filters: { name: frm.doc.customer },
+                fieldname: ['custom_trade_price', 'custom_discount_on_tp']
+            }
+        });
+        if (message) {
+            trade_price = message.custom_trade_price || 0;
+            discount_on_tp = message.custom_discount_on_tp || 0;
         }
-    });
-
-    if (response.message) {
-        trade_price = response.message.custom_trade_price || 0;
-        discount_on_tp = response.message.custom_discount_on_tp || 0;
+    } catch (error) {
+        console.error("Error fetching customer pricing:", error);
     }
 
-    // Apply trade price discount
-    row.custom_trade_price = row.custom_unit_price - (row.custom_unit_price * (trade_price / 100));
+    // Step 4: Apply discounts
+    row.custom_trade_price = row.custom_unit_price * (1 - trade_price / 100);
+    row.custom_discount_on_tp = row.custom_trade_price * (1 - discount_on_tp / 100);
+    row.custom_item_amount = row.custom_discount_on_tp * qty;
 
-    // Apply further discount on trade price
-    row.custom_discount_on_tp = row.custom_trade_price - (row.custom_trade_price * (discount_on_tp / 100));
-
-    // Final item amount and rate
-    row.custom_item_amount = row.custom_discount_on_tp * row.qty;
-    row.discount_amount = row.price_list_rate - (row.custom_discount_on_tp + item_tax_amount);
+    // Step 5: Final rate and discount amount
+    row.discount_amount = price_list_rate - (row.custom_discount_on_tp + item_tax_amount);
     row.rate = row.custom_discount_on_tp + item_tax_amount;
 
-    // Refresh the row to reflect updates
+    // Step 6: Refresh UI
     frm.refresh_field('items');
 }
+
