@@ -24,6 +24,19 @@ app_license = "mit"
 # Includes in <head>
 # ------------------
 
+
+fixtures = [
+	{
+		"doctype":"Custom Field",
+		"filters":[
+			[
+				"module", "=", "Mrp App"
+			]
+		]
+	}
+]
+
+
 # include js, css files in header of desk.html
 # app_include_css = "/assets/mrp_app/css/mrp_app.css"
 # app_include_js = "/assets/mrp_app/js/mrp_app.js"
@@ -43,7 +56,7 @@ app_license = "mit"
 # page_js = {"page" : "public/js/file.js"}
 
 # include js in doctype views
-# doctype_js = {"doctype" : "public/js/doctype.js"}
+doctype_js = {"Sales Invoice" : "public/js/sales_invoice.js"}
 # doctype_list_js = {"doctype" : "public/js/doctype_list.js"}
 # doctype_tree_js = {"doctype" : "public/js/doctype_tree.js"}
 # doctype_calendar_js = {"doctype" : "public/js/doctype_calendar.js"}
