@@ -83,5 +83,19 @@ async function update_custom_pricing(frm, cdt, cdn) {
 
     // Step 6: Refresh UI
     frm.refresh_field('items');
-}
+    let total_tax_amount = 0;
+    for (let i = 0; i < frm.doc.items.length; i++) {
+        const ele = frm.doc.items[i];
+        total_tax_amount += ele.custom_sales_tax_amount;
+    }
+    let taxes = frm.doc.taxes;
+    if (taxes.length > 0) {
+        for (let i = 0; i < taxes.length; i++) {
+            const ele = taxes[i];
+            ele.charge_type = "Actual";
+            ele.rate = 0;
+            ele.tax_amount = total_tax_amount;
+        }
+    }
 
+}
