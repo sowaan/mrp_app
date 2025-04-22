@@ -78,8 +78,9 @@ async function update_custom_pricing(frm, cdt, cdn) {
     row.custom_item_amount = row.custom_discount_on_tp * qty;
 
     // Step 5: Final rate and discount amount
-    row.discount_amount = price_list_rate - (row.custom_discount_on_tp + item_tax_amount);
-    row.rate = row.custom_discount_on_tp + item_tax_amount;
+    row.discount_amount = price_list_rate - row.custom_discount_on_tp;
+    // row.rate = row.custom_discount_on_tp + item_tax_amount;
+    row.rate = row.custom_discount_on_tp;
 
     // Step 6: Refresh UI
     frm.refresh_field('items');
